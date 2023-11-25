@@ -25,7 +25,7 @@ This Python script takes a CSV input via STDIN, converts the data to a specific 
 To use the script, you can use the following command in a Unix-like command-line environment:
 
 ```bash
-cat path_to_your_input_csv.csv | python csv_converter_script_unique_urls.py
+cat path_to_your_input_csv.csv | python raindrop_to_omnivore.py >import.csv
 ```
 
 Make sure to replace `path_to_your_input_csv.csv` with the actual path to your CSV file.

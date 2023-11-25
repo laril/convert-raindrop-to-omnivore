@@ -1,38 +1,48 @@
-import csv
-from io import StringIO
 
-# Example CSV content based on the user's description
-csv_content = """id,title,note,excerpt,url,folder,tags,created,cover,highlights
-683178424,When Idiot Savants Do Climate Economics,,How an elite clique of math-addled economists hijacked climate policy.,https://theintercept.com/2023/10/29/william-nordhaus-climate-economics/,Unsorted,"nordhaus, climate",2023-11-23T09:13:03.212Z,https://theintercept.com/wp-content/uploads/2023/10/GettyImages-1047733276-ft.jpg?fit=4096%2C2048&w=2048,
-"""
+import sys
+import pandas as pd
+from datetime import datetime
+import time
 
-# Convert the example CSV content to a StringIO object so it can be read like a file
-csv_file_like_object = StringIO(csv_content)
+def convert_to_unix(timestamp):
+    '''Converts ISO 8601 timestamp to Unix timestamp in milliseconds'''
+    dt = datetime.fromisoformat(timestamp.replace('Z', '+00:00'))
+    unix_time = int(time.mktime(dt.timetuple()) * 1000)
+    return unix_time
 
-# Read the example CSV content into a DataFrame
-original_df = pd.read_csv(csv_file_like_object)
+def format_labels(labels):
+    '''Formats labels for the Omnivore CSV'''
+    if pd.isna(labels) or labels.strip() == "":
+        return ""
+    labels_list = [label.strip() for label in labels.split(',')]
+    formatted_labels = '[' + ', '.join(f'"{label}"' for label in labels_list) + ']'
+    return formatted_labels
 
-# Now, let's create the conversion function based on the provided example
-def convert_csv_to_omnivore_format(df):
-    # Conversion of date to Unix timestamp in milliseconds
-    df['saved_at'] = pd.to_datetime(df['created']).astype(int) / 10**6
+def convert_csv(input_csv):
+    # Read the CSV content from STDIN
+    df = pd.read_csv(input_csv)
 
-    # Preparing the labels
-    df['labels'] = df['tags'].apply(lambda x: f"[{x}]" if pd.notnull(x) and x.strip() != '' else '[]')
+    # Remove duplicate URLs
+    df = df.drop_duplicates(subset='url', keep='first')
 
-    # Creating the new DataFrame for Omnivore format
+    # Convert 'created' date to Unix timestamp
+    df['saved_at'] = df['created'].apply(convert_to_unix)
+
+    # Format the labels
+    df['labels'] = df['tags'].apply(format_labels)
+
+    # Prepare the new DataFrame
     omnivore_df = pd.DataFrame({
         'url': df['url'],
-        'state': 'ARCHIVED',  # Assuming all entries should be set as ARCHIVED
+        'state': 'ARCHIVED',
         'labels': df['labels'],
         'saved_at': df['saved_at'],
         'published_at': ''  # Assuming there's no published_at information
     })
 
-    return omnivore_df
+    # Output the new DataFrame to STDOUT
+    omnivore_df.to_csv(sys.stdout, index=False)
 
-# Convert the original DataFrame to the Omnivore format
-omnivore_df = convert_csv_to_omnivore_format(original_df)
-
-# Display the first few rows of the converted DataFrame
-omnivore_df.head()
+# Read from STDIN
+input_csv_content = sys.stdin
+convert_csv(input_csv_content)
